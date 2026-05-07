@@ -21,6 +21,7 @@ export default function SettingsPage() {
     address: "",
     country: "IN",
     timezone: "Asia/Kolkata",
+    whatsappNumber: "",
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -29,7 +30,11 @@ export default function SettingsPage() {
 
   useEffect(() => {
     fetch("/api/business")
-      .then((r) => r.json())
+      .then(async (r) => {
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error ?? "Failed to load settings");
+        return data;
+      })
       .then((d) => {
         const b: Business = d.business;
         setBusiness(b);
@@ -39,10 +44,14 @@ export default function SettingsPage() {
           address: b.address ?? "",
           country: b.country,
           timezone: b.timezone,
+          whatsappNumber: user?.whatsappNumber ?? "",
         });
-        setLoading(false);
-      });
-  }, []);
+      })
+      .catch((e: unknown) => {
+        setError(e instanceof Error ? e.message : "Failed to load settings");
+      })
+      .finally(() => setLoading(false));
+  }, [user?.whatsappNumber]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -53,13 +62,30 @@ export default function SettingsPage() {
       const res = await fetch("/api/business", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          name: form.name,
+          gstin: form.gstin,
+          address: form.address,
+          country: form.country,
+          timezone: form.timezone,
+        }),
       });
-      const data = await res.json();
+      const [businessData, profileRes] = await Promise.all([
+        res.json(),
+        fetch("/api/auth/me", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ whatsappNumber: form.whatsappNumber }),
+        }),
+      ]);
+      const profileData = await profileRes.json();
+
       if (!res.ok) {
-        setError(data.error ?? "Failed to save");
+        setError(businessData.error ?? "Failed to save business settings");
+      } else if (!profileRes.ok) {
+        setError(profileData.error ?? "Failed to save WhatsApp number");
       } else {
-        setBusiness(data.business);
+        setBusiness(businessData.business);
         setSuccess(true);
         await refresh();
         setTimeout(() => setSuccess(false), 3000);
@@ -165,6 +191,21 @@ export default function SettingsPage() {
               <option value="Asia/Singapore">Asia/Singapore (SGT)</option>
             </select>
           </div>
+        </div>
+        <div>
+          <label className="label">WhatsApp Number</label>
+          <input
+            className="input"
+            type="tel"
+            placeholder="+919999999999"
+            value={form.whatsappNumber}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, whatsappNumber: e.target.value }))
+            }
+          />
+          <p className="text-xs text-slate-500 mt-1">
+            Used to map incoming WhatsApp commands to your business.
+          </p>
         </div>
 
         {error && (

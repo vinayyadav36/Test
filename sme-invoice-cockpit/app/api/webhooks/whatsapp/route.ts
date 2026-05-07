@@ -4,9 +4,14 @@ import { nanoid } from "nanoid";
 import { sendWhatsAppText } from "@/lib/whatsappClient";
 import { getAll, upsertById } from "@/lib/jsonDb";
 import { listInvoicesForBusiness } from "@/lib/invoices";
-import type { Customer, User, WebhookLog } from "@/lib/types";
+import type { User, WebhookLog } from "@/lib/types";
 
 const VERIFY_TOKEN = process.env.WA_WEBHOOK_VERIFY_TOKEN ?? "dev-verify-token";
+
+function normalizePhone(value: string): string {
+  const digits = value.replace(/[^\d]/g, "");
+  return digits ? `+${digits}` : "";
+}
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -51,51 +56,48 @@ export async function POST(req: NextRequest) {
 
       const userText: string = (msg.text?.body ?? "").trim().toLowerCase();
 
-      // Try to find a user mapped to this phone number
-      const customers = await getAll<Customer>("customers");
-      const matchedCustomer = customers.find((c) => c.phone === `+${from}`);
+      // Find user mapped to this WhatsApp number
+      const users = await getAll<User>("users");
+      const mappedUser = users.find(
+        (u) =>
+          u.whatsappNumber &&
+          normalizePhone(u.whatsappNumber) === normalizePhone(from)
+      );
 
-      if (userText.startsWith("invoices") || userText === "list") {
-        // Find business by customer
-        if (matchedCustomer) {
-          const users = await getAll<User>("users");
-          const bizUser = users.find(
-            (u) => u.businessId === matchedCustomer.businessId
-          );
-          if (bizUser) {
-            const invoices = await listInvoicesForBusiness(bizUser.businessId);
-            const overdue = invoices.filter(
-              (i) => i.status === "overdue" || i.status === "sent"
-            );
-            if (overdue.length === 0) {
-              await sendWhatsAppText(from, "You have no outstanding invoices. ✅");
-            } else {
-              const total = overdue.reduce((s, i) => s + (i.total - i.amountPaid), 0);
-              const list = overdue
-                .slice(0, 3)
-                .map(
-                  (i) =>
-                    `• ${i.number}: ${i.currency} ${(i.total - i.amountPaid).toFixed(2)} (due ${i.dueDate})`
-                )
-                .join("\n");
-              await sendWhatsAppText(
-                from,
-                `You have ${overdue.length} outstanding invoice(s) totalling ${overdue[0].currency} ${total.toFixed(2)}:\n${list}`
-              );
-            }
+      if (userText === "invoices" || userText === "overdue" || userText === "list") {
+        if (mappedUser) {
+          const invoices = await listInvoicesForBusiness(mappedUser.businessId);
+          const overdue = invoices.filter((i) => i.status === "overdue");
+          if (overdue.length === 0) {
+            await sendWhatsAppText(from, "No overdue invoices right now ✅");
           } else {
-            await sendWhatsAppText(from, "Your account is not linked to a business.");
+            const totalOutstanding = overdue.reduce(
+              (sum, i) => sum + (i.total - i.amountPaid),
+              0
+            );
+            const lines = overdue.slice(0, 3).map(
+              (i) =>
+                `${i.number}: ${i.currency} ${(i.total - i.amountPaid).toFixed(
+                  2
+                )} (due ${i.dueDate})`
+            );
+            await sendWhatsAppText(
+              from,
+              `You have ${overdue.length} overdue invoices (total ${overdue[0].currency} ${totalOutstanding.toFixed(
+                2
+              )}):\n${lines.join("\n")}`
+            );
           }
         } else {
           await sendWhatsAppText(
             from,
-            "Your number is not registered. Please contact your business owner."
+            "Your number is not linked yet. Please add it in Invoice Cockpit Settings."
           );
         }
       } else if (userText === "help") {
         await sendWhatsAppText(
           from,
-          "📋 Invoice Cockpit Commands:\n• *invoices* – see outstanding invoices\n• *help* – show this menu"
+          "📋 Invoice Cockpit Commands:\n• *invoices* / *overdue* – see overdue invoices\n• *help* – show this menu"
         );
       } else {
         await sendWhatsAppText(

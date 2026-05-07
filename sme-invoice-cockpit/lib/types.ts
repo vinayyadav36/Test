@@ -7,6 +7,7 @@ export type User = {
   passwordHash: string;
   businessId: ID;
   role: "owner" | "staff";
+  whatsappNumber?: string;
   createdAt: string;
 };
 
