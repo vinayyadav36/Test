@@ -70,25 +70,25 @@ export default function SettingsPage() {
           timezone: form.timezone,
         }),
       });
-      const [businessData, profileRes] = await Promise.all([
-        res.json(),
-        fetch("/api/auth/me", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ whatsappNumber: form.whatsappNumber }),
-        }),
-      ]);
-      const profileData = await profileRes.json();
+      const businessData = await res.json();
 
       if (!res.ok) {
         setError(businessData.error ?? "Failed to save business settings");
-      } else if (!profileRes.ok) {
-        setError(profileData.error ?? "Failed to save WhatsApp number");
       } else {
-        setBusiness(businessData.business);
-        setSuccess(true);
-        await refresh();
-        setTimeout(() => setSuccess(false), 3000);
+        const profileRes = await fetch("/api/auth/me", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ whatsappNumber: form.whatsappNumber }),
+        });
+        const profileData = await profileRes.json();
+        if (!profileRes.ok) {
+        setError(profileData.error ?? "Failed to save WhatsApp number");
+        } else {
+          setBusiness(businessData.business);
+          setSuccess(true);
+          await refresh();
+          setTimeout(() => setSuccess(false), 3000);
+        }
       }
     } catch {
       setError("Network error.");

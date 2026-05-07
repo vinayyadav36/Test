@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { requireUser } from "@/app/api/_auth";
 import { getAll, saveAll } from "@/lib/jsonDb";
 import { userProfileSchema } from "@/lib/validators";
+import { normalizePhone } from "@/lib/phone";
 import type { Business, User } from "@/lib/types";
 
 export async function GET() {
@@ -48,12 +49,9 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
+    const rawWhatsApp = parsed.data.whatsappNumber;
     const normalizedWhatsApp =
-      parsed.data.whatsappNumber?.trim() === ""
-        ? undefined
-        : parsed.data.whatsappNumber?.trim().startsWith("+")
-          ? parsed.data.whatsappNumber?.trim()
-          : `+${parsed.data.whatsappNumber?.trim()}`;
+      rawWhatsApp === "" ? undefined : normalizePhone(rawWhatsApp);
 
     users[idx] = { ...users[idx], whatsappNumber: normalizedWhatsApp };
     await saveAll("users", users);

@@ -4,14 +4,10 @@ import { nanoid } from "nanoid";
 import { sendWhatsAppText } from "@/lib/whatsappClient";
 import { getAll, upsertById } from "@/lib/jsonDb";
 import { listInvoicesForBusiness } from "@/lib/invoices";
+import { normalizePhone } from "@/lib/phone";
 import type { User, WebhookLog } from "@/lib/types";
 
 const VERIFY_TOKEN = process.env.WA_WEBHOOK_VERIFY_TOKEN ?? "dev-verify-token";
-
-function normalizePhone(value: string): string {
-  const digits = value.replace(/[^\d]/g, "");
-  return digits ? `+${digits}` : "";
-}
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -55,13 +51,14 @@ export async function POST(req: NextRequest) {
       if (type !== "text") continue;
 
       const userText: string = (msg.text?.body ?? "").trim().toLowerCase();
+      const fromNormalized = normalizePhone(from);
 
       // Find user mapped to this WhatsApp number
       const users = await getAll<User>("users");
       const mappedUser = users.find(
         (u) =>
           u.whatsappNumber &&
-          normalizePhone(u.whatsappNumber) === normalizePhone(from)
+          normalizePhone(u.whatsappNumber) === fromNormalized
       );
 
       if (userText === "invoices" || userText === "overdue" || userText === "list") {
@@ -75,6 +72,7 @@ export async function POST(req: NextRequest) {
               (sum, i) => sum + (i.total - i.amountPaid),
               0
             );
+            const currency = overdue[0]?.currency ?? "INR";
             const lines = overdue.slice(0, 3).map(
               (i) =>
                 `${i.number}: ${i.currency} ${(i.total - i.amountPaid).toFixed(
@@ -83,7 +81,7 @@ export async function POST(req: NextRequest) {
             );
             await sendWhatsAppText(
               from,
-              `You have ${overdue.length} overdue invoices (total ${overdue[0].currency} ${totalOutstanding.toFixed(
+              `You have ${overdue.length} overdue invoices (total ${currency} ${totalOutstanding.toFixed(
                 2
               )}):\n${lines.join("\n")}`
             );

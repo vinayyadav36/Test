@@ -15,7 +15,11 @@ export const loginSchema = z.object({
 export const customerSchema = z.object({
   name: z.string().min(1),
   email: z.string().email().optional().or(z.literal("")),
-  phone: z.string().min(8).max(20).optional().or(z.literal("")),
+  phone: z
+    .string()
+    .regex(/^\+[1-9][0-9]{7,14}$/)
+    .optional()
+    .or(z.literal("")),
   gstin: z
     .string()
     .regex(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][A-Z0-9]Z[A-Z0-9]$/)
@@ -60,7 +64,14 @@ export const invoiceCreateSchema = z.object({
 }).superRefine((data, ctx) => {
   const issue = new Date(data.issueDate).getTime();
   const due = new Date(data.dueDate).getTime();
-  if (!Number.isFinite(issue) || !Number.isFinite(due)) return;
+  if (!Number.isFinite(issue) || !Number.isFinite(due)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["dueDate"],
+      message: "Invalid issue or due date",
+    });
+    return;
+  }
   if (issue > due) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
@@ -73,8 +84,7 @@ export const invoiceCreateSchema = z.object({
 export const userProfileSchema = z.object({
   whatsappNumber: z
     .string()
-    .trim()
-    .regex(/^\+?[1-9][0-9]{7,14}$/)
+    .regex(/^\+[1-9][0-9]{7,14}$/)
     .optional()
     .or(z.literal("")),
 });
