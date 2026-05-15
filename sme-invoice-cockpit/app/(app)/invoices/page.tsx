@@ -1,65 +1,43 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { PageHeader } from "@/app/components/PageHeader";
 import { StatusBadge, formatCurrency, formatDate } from "@/app/components/ui";
-
-type Invoice = {
-  id: string;
-  number: string;
-  customerId: string;
-  issueDate: string;
-  dueDate: string;
-  status: string;
-  currency: string;
-  total: number;
-  amountPaid: number;
-  createdAt: string;
-};
-
-type Customer = { id: string; name: string };
+import { useCollection } from "@/lib/useData";
+import type { Invoice, Customer } from "@/lib/types";
 
 const STATUSES = ["all", "draft", "sent", "paid", "overdue"];
 
 export default function InvoicesPage() {
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([]);
+  const router = useRouter();
+  const { data: invoices, loading } = useCollection<Invoice>("invoices");
+  const { data: customers } = useCollection<Customer>("customers");
   const [filter, setFilter] = useState("all");
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  async function load() {
-    setLoading(true);
-    setError("");
-    try {
-      const [invRes, cusRes] = await Promise.all([
-        fetch("/api/invoices"),
-        fetch("/api/customers"),
-      ]);
-      const invData = await invRes.json();
-      const cusData = await cusRes.json();
-      if (!invRes.ok) throw new Error(invData.error ?? "Failed to load invoices");
-      if (!cusRes.ok) throw new Error(cusData.error ?? "Failed to load customers");
-      setInvoices(invData.invoices ?? []);
-      setCustomers(cusData.customers ?? []);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to load");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const customerMap = useMemo(
+    () => Object.fromEntries(customers.map((c) => [c.id, c.name])),
+    [customers]
+  );
 
-  useEffect(() => { load(); }, []);
+  const filtered = useMemo(
+    () => (filter === "all" ? invoices : invoices.filter((i) => i.status === filter)),
+    [invoices, filter]
+  );
 
-  const customerMap = Object.fromEntries(customers.map((c) => [c.id, c.name]));
-
-  const filtered =
-    filter === "all" ? invoices : invoices.filter((i) => i.status === filter);
+  const sorted = useMemo(
+    () =>
+      [...filtered].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      ),
+    [filtered]
+  );
 
   async function handleDelete(id: string) {
     if (!confirm("Delete this invoice?")) return;
-    await fetch(`/api/invoices/${id}`, { method: "DELETE" });
-    load();
+    const res = await fetch(`/api/invoices/${id}`, { method: "DELETE", credentials: "include" });
+    if (res.ok) router.refresh();
   }
 
   return (
@@ -68,7 +46,6 @@ export default function InvoicesPage() {
         <Link href="/invoices/new" className="btn-primary">+ New Invoice</Link>
       </PageHeader>
 
-      {/* Filter tabs */}
       <div className="flex gap-2 mb-5 flex-wrap">
         {STATUSES.map((s) => (
           <button
@@ -84,7 +61,7 @@ export default function InvoicesPage() {
           </button>
         ))}
         <span className="ml-auto text-xs text-slate-500 self-center">
-          {filtered.length} invoice{filtered.length !== 1 ? "s" : ""}
+          {sorted.length} invoice{sorted.length !== 1 ? "s" : ""}
         </span>
       </div>
 
@@ -93,75 +70,54 @@ export default function InvoicesPage() {
           <div className="animate-spin h-6 w-6 rounded-full border-2 border-indigo-500 border-t-transparent" />
         </div>
       ) : error ? (
-        <div className="card">
-          <p className="text-sm text-red-400">{error}</p>
-        </div>
-      ) : filtered.length === 0 ? (
+        <div className="card"><p className="text-sm text-red-400">{error}</p></div>
+      ) : sorted.length === 0 ? (
         <div className="card text-center py-12">
           <p className="text-slate-400 text-sm mb-4">No invoices yet.</p>
-          <Link href="/invoices/new" className="btn-primary">
-            Create Invoice
-          </Link>
+          <Link href="/invoices/new" className="btn-primary">Create Invoice</Link>
         </div>
       ) : (
         <div className="card p-0 overflow-hidden">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm table-responsive">
             <thead>
               <tr className="border-b border-slate-800 text-slate-400">
                 <th className="text-left px-4 py-3 font-medium">Number</th>
                 <th className="text-left px-4 py-3 font-medium">Customer</th>
-                <th className="text-left px-4 py-3 font-medium hidden sm:table-cell">
-                  Issue Date
-                </th>
-                <th className="text-left px-4 py-3 font-medium hidden sm:table-cell">
-                  Due Date
-                </th>
+                <th className="text-left px-4 py-3 font-medium hidden sm:table-cell">Issue Date</th>
+                <th className="text-left px-4 py-3 font-medium hidden sm:table-cell">Due Date</th>
                 <th className="text-right px-4 py-3 font-medium">Amount</th>
                 <th className="text-center px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
             <tbody>
-              {filtered.map((inv) => (
+              {sorted.map((inv) => (
                 <tr
                   key={inv.id}
                   className="border-b border-slate-800 last:border-0 hover:bg-slate-800/40 transition-colors"
                 >
-                  <td className="px-4 py-3 font-mono text-xs text-indigo-400">
-                    <Link href={`/invoices/${inv.id}`} className="hover:underline">
-                      {inv.number}
-                    </Link>
+                  <td className="px-4 py-3 font-mono text-xs text-indigo-400" data-label="Number">
+                    <Link href={`/invoices/${inv.id}`} className="hover:underline">{inv.number}</Link>
                   </td>
-                  <td className="px-4 py-3 text-slate-200">
-                    {customerMap[inv.customerId] ?? "—"}
+                  <td className="px-4 py-3 text-slate-200" data-label="Customer">
+                    {customerMap[inv.customerId] ?? "\u2014"}
                   </td>
-                  <td className="px-4 py-3 text-slate-400 hidden sm:table-cell">
-                    {formatDate(inv.issueDate)}
-                  </td>
-                  <td className="px-4 py-3 text-slate-400 hidden sm:table-cell">
-                    {formatDate(inv.dueDate)}
-                  </td>
-                  <td className="px-4 py-3 text-right font-medium text-white">
+                  <td className="px-4 py-3 text-slate-400 hidden sm:table-cell" data-label="Issue">{formatDate(inv.issueDate)}</td>
+                  <td className="px-4 py-3 text-slate-400 hidden sm:table-cell" data-label="Due">{formatDate(inv.dueDate)}</td>
+                  <td className="px-4 py-3 text-right font-medium text-white" data-label="Amount">
                     {formatCurrency(inv.total, inv.currency)}
                   </td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-4 py-3 text-center" data-label="Status">
                     <StatusBadge status={inv.status} />
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <div className="flex items-center gap-2 justify-end">
-                      <Link
-                        href={`/invoices/${inv.id}`}
-                        className="text-xs text-slate-400 hover:text-slate-200"
-                      >
-                        View
-                      </Link>
-                      <button
-                        onClick={() => handleDelete(inv.id)}
-                        className="text-xs text-red-500 hover:text-red-400"
-                      >
-                        Delete
-                      </button>
-                    </div>
+                    <Link href={`/invoices/${inv.id}`} className="text-xs text-slate-400 hover:text-slate-200 mr-2">View</Link>
+                    <button
+                      onClick={() => handleDelete(inv.id)}
+                      className="text-xs text-red-500 hover:text-red-400"
+                    >
+                      Delete
+                    </button>
                   </td>
                 </tr>
               ))}

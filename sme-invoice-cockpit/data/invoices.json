@@ -1,1 +1,38 @@
-[]
+[
+  {
+    "id": "nFKRrMPFwkCzsskFDCvry",
+    "businessId": "biz_8B8TLTIQ28GJg7rirNWJH",
+    "number": "INV-0001",
+    "customerId": "cus_fZwP6YNtdMYkDMBS3b1gj",
+    "issueDate": "2026-05-15",
+    "dueDate": "2026-05-22",
+    "status": "draft",
+    "currency": "INR",
+    "lineItems": [
+      {
+        "id": "YDr92EUlnF_ZElCAtbg3_",
+        "description": "rice",
+        "quantity": 2,
+        "rate": 20,
+        "gstRate": 5,
+        "amount": 40,
+        "taxAmount": 2
+      },
+      {
+        "id": "r01kyV0WazdLKfUJpqH8w",
+        "description": "aataat",
+        "quantity": 3,
+        "rate": 40,
+        "gstRate": 28,
+        "amount": 120,
+        "taxAmount": 33.6
+      }
+    ],
+    "subtotal": 160,
+    "taxTotal": 35.6,
+    "total": 195.6,
+    "amountPaid": 0,
+    "notes": "cadshhsfas",
+    "createdAt": "2026-05-15T06:13:23.579Z"
+  }
+]

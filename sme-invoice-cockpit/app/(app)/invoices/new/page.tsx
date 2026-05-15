@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { PageHeader } from "@/app/components/PageHeader";
+import { triggerRefresh } from "@/lib/useData";
 
 type Customer = { id: string; name: string };
 type Item = { id: string; name: string; price: number; gstRate: number; unit: string };
@@ -47,14 +48,33 @@ export default function NewInvoicePage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    Promise.all([fetch("/api/customers"), fetch("/api/items")]).then(
-      async ([cRes, iRes]) => {
+    const controller = new AbortController();
+    const fetchData = async () => {
+      try {
+        const [cRes, iRes] = await Promise.all([
+          fetch("/api/customers", {
+            credentials: "include",
+            signal: controller.signal,
+            headers: { "Cache-Control": "no-cache" },
+          }),
+          fetch("/api/items", {
+            credentials: "include",
+            signal: controller.signal,
+            headers: { "Cache-Control": "no-cache" },
+          }),
+        ]);
         const cData = await cRes.json();
         const iData = await iRes.json();
         setCustomers(cData.customers ?? []);
         setItems(iData.items ?? []);
+      } catch (err) {
+        if (!(err instanceof Error && err.name === "AbortError")) {
+          console.error("Failed to load customers/items", err);
+        }
       }
-    );
+    };
+    fetchData();
+    return () => controller.abort();
   }, []);
 
   function updateLine(id: string, patch: Partial<LineItem>) {
@@ -104,6 +124,7 @@ export default function NewInvoicePage() {
       const res = await fetch("/api/invoices", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           ...form,
           lineItems: lineItems.map(({ id: _id, ...l }) => l),
@@ -113,6 +134,9 @@ export default function NewInvoicePage() {
       if (!res.ok) {
         setError(data.error ?? "Failed to create invoice");
       } else {
+        triggerRefresh("invoices");
+        router.refresh();
+        await new Promise(resolve => setTimeout(resolve, 100));
         router.push(`/invoices/${data.invoice.id}`);
       }
     } catch {

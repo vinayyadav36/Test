@@ -13,20 +13,24 @@ export const loginSchema = z.object({
 });
 
 export const customerSchema = z.object({
-  name: z.string().min(1),
-  email: z.string().email().optional().or(z.literal("")),
+  name: z.string().min(1, "Name is required"),
+  email: z
+    .string()
+    .email("Invalid email format")
+    .optional()
+    .or(z.literal("")),
   phone: z
     .string()
-    .regex(/^\+[1-9][0-9]{7,14}$/)
+    .regex(/^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$/, "Invalid phone number")
     .optional()
     .or(z.literal("")),
   gstin: z
     .string()
-    .regex(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][A-Z0-9]Z[A-Z0-9]$/)
+    .regex(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][A-Z0-9]Z[A-Z0-9]$/, "Invalid GSTIN format")
     .optional()
     .or(z.literal("")),
-  billingAddress: z.string().optional(),
-  shippingAddress: z.string().optional(),
+  billingAddress: z.string().optional().or(z.literal("")),
+  shippingAddress: z.string().optional().or(z.literal("")),
 });
 
 export const itemSchema = z.object({

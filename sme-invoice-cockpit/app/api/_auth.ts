@@ -4,8 +4,20 @@ import { getUserBySessionToken } from "@/lib/auth";
 import type { User } from "@/lib/types";
 
 export async function requireUser(): Promise<User | null> {
-  const cookieStore = cookies();
-  const token = cookieStore.get("session_token")?.value;
-  if (!token) return null;
-  return getUserBySessionToken(token);
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("session_token")?.value;
+    if (!token) {
+      console.debug("No session token found in cookies");
+      return null;
+    }
+    const user = await getUserBySessionToken(token);
+    if (!user) {
+      console.debug("User not found for token");
+    }
+    return user;
+  } catch (error) {
+    console.error("Error in requireUser:", error);
+    return null;
+  }
 }

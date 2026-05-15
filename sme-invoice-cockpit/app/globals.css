@@ -76,3 +76,23 @@ body {
     text-wrap: balance;
   }
 }
+
+/* Mobile responsive tables */
+@media (max-width: 640px) {
+  .table-responsive {
+    @apply block w-full;
+  }
+  .table-responsive thead {
+    @apply hidden;
+  }
+  .table-responsive tbody tr {
+    @apply block border-b border-slate-800 py-3;
+  }
+  .table-responsive tbody td {
+    @apply block text-right px-3 py-1;
+  }
+  .table-responsive tbody td::before {
+    content: attr(data-label);
+    @apply float-left text-xs font-medium text-slate-400 uppercase;
+  }
+}

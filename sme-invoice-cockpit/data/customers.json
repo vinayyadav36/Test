@@ -1,1 +1,21 @@
-[]
+[
+  {
+    "id": "cus_EnNVpdUixpat97HmRXIVA",
+    "businessId": "biz_8B8TLTIQ28GJg7rirNWJH",
+    "name": "vikas mittal",
+    "email": "accounts.vikahs@gmail.com",
+    "phone": "+91563876533",
+    "gstin": "07AAACI5950L1ZC",
+    "billingAddress": "haryana",
+    "shippingAddress": "Colombia",
+    "createdAt": "2026-05-13T10:49:42.325Z"
+  },
+  {
+    "id": "cus_fZwP6YNtdMYkDMBS3b1gj",
+    "businessId": "biz_8B8TLTIQ28GJg7rirNWJH",
+    "name": "harry ",
+    "email": "accounts@harry.com",
+    "phone": "+91123456789",
+    "createdAt": "2026-05-15T06:11:38.353Z"
+  }
+]

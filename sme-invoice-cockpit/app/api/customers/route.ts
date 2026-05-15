@@ -24,6 +24,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const user = await requireUser();
   if (!user) {
+    console.warn("POST /api/customers: No authenticated user");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -31,8 +32,13 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const parsed = customerSchema.safeParse(body);
     if (!parsed.success) {
+      const errors = parsed.error.flatten();
+      console.warn("POST /api/customers: Validation error", errors);
       return NextResponse.json(
-        { error: "Invalid payload", details: parsed.error.flatten() },
+        { 
+          error: "Invalid customer data", 
+          details: errors.fieldErrors
+        },
         { status: 400 }
       );
     }
@@ -44,14 +50,15 @@ export async function POST(req: NextRequest) {
       email: parsed.data.email || undefined,
       phone: parsed.data.phone || undefined,
       gstin: parsed.data.gstin || undefined,
-      billingAddress: parsed.data.billingAddress,
-      shippingAddress: parsed.data.shippingAddress,
+      billingAddress: parsed.data.billingAddress || undefined,
+      shippingAddress: parsed.data.shippingAddress || undefined,
       createdAt: new Date().toISOString(),
     };
 
     await upsertById("customers", customer);
     return NextResponse.json({ customer }, { status: 201 });
-  } catch {
+  } catch (error) {
+    console.error("POST /api/customers: Server error", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

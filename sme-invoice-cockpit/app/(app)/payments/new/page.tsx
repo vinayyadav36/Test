@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { PageHeader } from "@/app/components/PageHeader";
+import { triggerRefresh } from "@/lib/useData";
 
 type Invoice = { id: string; number: string; total: number; amountPaid: number; currency: string; status: string };
 
@@ -19,14 +20,27 @@ export default function NewPaymentPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    fetch("/api/invoices")
-      .then((r) => r.json())
-      .then((d) => {
+    const controller = new AbortController();
+    const fetchData = async () => {
+      try {
+        const res = await fetch("/api/invoices", {
+          credentials: "include",
+          signal: controller.signal,
+          headers: { "Cache-Control": "no-cache" },
+        });
+        const d = await res.json();
         const outstanding = (d.invoices ?? []).filter(
           (i: Invoice) => i.status !== "paid" && i.status !== "draft"
         );
         setInvoices(outstanding);
-      });
+      } catch (err) {
+        if (!(err instanceof Error && err.name === "AbortError")) {
+          console.error("Failed to load invoices", err);
+        }
+      }
+    };
+    fetchData();
+    return () => controller.abort();
   }, []);
 
   const selectedInvoice = invoices.find((i) => i.id === form.invoiceId);
@@ -45,12 +59,17 @@ export default function NewPaymentPage() {
       const res = await fetch("/api/payments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ ...form, amount }),
       });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "Failed to record payment");
       } else {
+        triggerRefresh("payments");
+        triggerRefresh("invoices");
+        router.refresh();
+        await new Promise(resolve => setTimeout(resolve, 100));
         router.push(`/invoices/${form.invoiceId}`);
       }
     } catch {

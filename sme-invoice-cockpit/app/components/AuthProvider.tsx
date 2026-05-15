@@ -1,6 +1,8 @@
 "use client";
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import * as clientDb from "@/lib/clientDb";
+import { triggerRefresh } from "@/lib/useData";
 
 type AuthUser = {
   id: string;
@@ -35,19 +37,38 @@ const AuthContext = createContext<AuthCtx>({
   refresh: async () => {},
 });
 
+const collections = ["customers", "items", "invoices", "payments", "webhooks"] as const;
+
+async function syncServerToClient() {
+  for (const col of collections) {
+    try {
+      const res = await fetch(`/api/${col}`, { credentials: "include" });
+      if (!res.ok) continue;
+      const data = await res.json();
+      const key = col === "invoices" ? "invoices" : col;
+      const items = data[key] ?? [];
+      if (Array.isArray(items) && items.length > 0) {
+        await clientDb.saveAll(col as any, items);
+      }
+    } catch {}
+  }
+  for (const col of collections) triggerRefresh(col);
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [business, setBusiness] = useState<Business | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     try {
-      const res = await fetch("/api/auth/me");
+      const res = await fetch("/api/auth/me", { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setUser(data.user);
         setBusiness(data.business);
+        syncServerToClient();
       } else {
         setUser(null);
         setBusiness(null);
@@ -58,18 +79,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    refresh();
   }, []);
 
-  const logout = async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
+  useEffect(() => { refresh(); }, [refresh]);
+
+  const logout = useCallback(async () => {
+    await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
     setUser(null);
     setBusiness(null);
     router.push("/login");
-  };
+  }, [router]);
 
   return (
     <AuthContext.Provider value={{ user, business, loading, logout, refresh }}>

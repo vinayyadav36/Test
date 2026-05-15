@@ -1,1 +1,11 @@
-[]
+[
+  {
+    "id": "usr_KvFPXFQt8L0gCQA98nuv9",
+    "email": "vinay_227051@saitm.org",
+    "passwordHash": "$2b$10$pQUdNNP5RPobAlDGxHMYBeF0vks5L21FpjFZxl3f7w1UbxMc9O1I.",
+    "businessId": "biz_8B8TLTIQ28GJg7rirNWJH",
+    "role": "owner",
+    "createdAt": "2026-05-13T10:38:48.731Z",
+    "whatsappNumber": "+911234567823"
+  }
+]

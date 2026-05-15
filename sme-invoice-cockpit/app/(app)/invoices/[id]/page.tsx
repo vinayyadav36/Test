@@ -62,21 +62,29 @@ export default function InvoiceDetailPage() {
   const [linkError, setLinkError] = useState("");
 
   async function load() {
-    const [invRes, payRes] = await Promise.all([
-      fetch(`/api/invoices/${id}`),
-      fetch("/api/payments"),
+    const [invRes, payRes, cusRes] = await Promise.all([
+      fetch(`/api/invoices/${id}`, {
+        credentials: "include",
+        headers: { "Cache-Control": "no-cache" },
+      }),
+      fetch("/api/payments", {
+        credentials: "include",
+        headers: { "Cache-Control": "no-cache" },
+      }),
+      fetch("/api/customers", {
+        credentials: "include",
+        headers: { "Cache-Control": "no-cache" },
+      }),
     ]);
     if (!invRes.ok) { router.push("/invoices"); return; }
     const invData = await invRes.json();
     const payData = await payRes.json();
+    const cusData = await cusRes.json();
     const inv: Invoice = invData.invoice;
     setInvoice(inv);
     const allPayments: Payment[] = payData.payments ?? [];
     setPayments(allPayments.filter((p) => (p as unknown as { invoiceId: string }).invoiceId === id));
 
-    // Load customer
-    const cusRes = await fetch("/api/customers");
-    const cusData = await cusRes.json();
     const cus = (cusData.customers ?? []).find(
       (c: Customer) => c.id === inv.customerId
     );
@@ -91,6 +99,7 @@ export default function InvoiceDetailPage() {
     await fetch(`/api/invoices/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
+        credentials: "include",
       body: JSON.stringify({ status }),
     });
     load();
@@ -110,6 +119,7 @@ export default function InvoiceDetailPage() {
       const res = await fetch("/api/payments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           invoiceId: id,
           amount,
@@ -135,7 +145,11 @@ export default function InvoiceDetailPage() {
     setLinkLoading(true);
     setLinkError("");
     try {
-      const res = await fetch(`/api/invoices/${id}/payment-link`, { method: "POST" });
+      const res = await fetch(`/api/invoices/${id}/payment-link`, { 
+        method: "POST", 
+        credentials: "include",
+        headers: { "Cache-Control": "no-cache" },
+      });
       const data = await res.json();
       if (!res.ok) {
         setLinkError(data.error ?? "Failed to create payment link");
