@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useState, ReactNode, useCallback 
 import { useRouter } from "next/navigation";
 import * as clientDb from "@/lib/clientDb";
 import { triggerRefresh } from "@/lib/useData";
+import type { CollectionName } from "@/lib/jsonDb";
 
 type AuthUser = {
   id: string;
@@ -48,7 +49,7 @@ async function syncServerToClient() {
       const key = col === "invoices" ? "invoices" : col;
       const items = data[key] ?? [];
       if (Array.isArray(items) && items.length > 0) {
-        await clientDb.saveAll(col as any, items);
+        await clientDb.saveAll(col as CollectionName, items);
       }
     } catch {}
   }

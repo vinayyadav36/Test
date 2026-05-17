@@ -1,4 +1,4 @@
-import crypto from "crypto";
+﻿import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { nanoid } from "nanoid";
 import { getAll, saveAll, upsertById } from "@/lib/jsonDb";
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, ignored: true });
   }
 
-  const entity = (payload as { payload?: { payment?: { entity?: { notes?: Record<string, string>; id?: string; amount?: number } } } }).payload?.payment?.entity;
+  const entity = payload?.payload?.payment?.entity;
   const invoiceId = entity?.notes?.invoiceId as string | undefined;
   const amountPaise = entity?.amount as number | undefined;
   if (!invoiceId || !amountPaise) {
